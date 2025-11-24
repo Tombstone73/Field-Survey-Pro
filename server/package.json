@@ -1,0 +1,41 @@
+{
+    "name": "server",
+    "version": "1.0.0",
+    "description": "Backend API for Field Survey Pro",
+    "main": "dist/server.js",
+    "type": "module",
+    "scripts": {
+        "dev": "node --loader ts-node/esm src/server.ts",
+        "build": "tsc",
+        "start": "node dist/server.js",
+        "db:generate": "npx prisma generate --schema=src/prisma/schema.prisma",
+        "db:push": "npx prisma db push --schema=src/prisma/schema.prisma",
+        "db:studio": "npx prisma studio --schema=src/prisma/schema.prisma"
+    },
+    "keywords": [],
+    "author": "",
+    "license": "ISC",
+    "dependencies": {
+        "@prisma/client": "^5.22.0",
+        "bcrypt": "^5.1.1",
+        "cookie-parser": "^1.4.7",
+        "cors": "^2.8.5",
+        "dotenv": "^16.4.5",
+        "express": "^4.21.1",
+        "jsonwebtoken": "^9.0.2",
+        "multer": "^1.4.5-lts.1"
+    },
+    "devDependencies": {
+        "@types/bcrypt": "^5.0.2",
+        "@types/cookie-parser": "^1.4.7",
+        "@types/cors": "^2.8.17",
+        "@types/express": "^5.0.0",
+        "@types/jsonwebtoken": "^9.0.7",
+        "@types/multer": "^1.4.12",
+        "@types/node": "^22.9.3",
+        "prisma": "^5.22.0",
+        "ts-node": "^10.9.2",
+        "tsx": "^4.19.2",
+        "typescript": "^5.7.2"
+    }
+}

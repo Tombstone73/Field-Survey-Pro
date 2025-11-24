@@ -1,0 +1,120 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String    @id @default(uuid())
+  name      String
+  email     String    @unique
+  password  String    // Hashed password
+  createdAt DateTime  @default(now())
+  
+  currentOrganizationId String?
+  currentOrganization   Organization? @relation(fields: [currentOrganizationId], references: [id])
+
+  organizationMemberships OrganizationMember[]
+  projects  Project[] @relation("ProjectOwner")
+  createdProjects Project[] // Relation for createdBy
+}
+
+model Project {
+  id            String   @id @default(uuid())
+  jobNumber     String
+  clientName    String
+  siteAddress   String?
+  status        String @default("SURVEY")
+  projectNotes  String?
+  createdByUserId String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt @default(now())
+  
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+
+  ownerId        String?
+  owner          User?        @relation("ProjectOwner", fields: [ownerId], references: [id])
+
+  createdBy     User     @relation(fields: [createdByUserId], references: [id], onDelete: Cascade)
+  photos        Photo[]
+  notes         Note[]
+  shareLinks    ProjectShareLink[]
+  
+  @@index([createdByUserId])
+  @@index([status])
+  @@index([jobNumber])
+  @@index([organizationId])
+  @@index([ownerId])
+}
+
+
+
+model Photo {
+  id              String   @id @default(uuid())
+  projectId       String
+  imageFile       String
+  caption         String?
+  isPortfolio     Boolean  @default(false)
+  statusAtCapture String?
+  annotations     String?
+  annotatedImagePath String?
+  createdAt       DateTime @default(now())
+
+  project         Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+}
+
+model Note {
+  id        String   @id @default(uuid())
+  projectId String
+  noteText  String
+  createdAt DateTime @default(now())
+  
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  
+  @@index([projectId])
+}
+
+model Organization {
+  id              String              @id @default(uuid())
+  name            String
+  joinCode        String              @unique
+  createdByUserId String
+  createdAt       DateTime            @default(now())
+
+  members         OrganizationMember[]
+  projects        Project[]
+  activeUsers     User[]
+}
+
+model OrganizationMember {
+  id             String        @id @default(uuid())
+  organizationId String
+  userId         String
+  role           String        @default("MEMBER") // OWNER, ADMIN, MEMBER
+  createdAt      DateTime      @default(now())
+
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+}
+
+model ProjectShareLink {
+  id           String   @id @default(uuid())
+  projectId    String
+  token        String   @unique
+  expiresAt    DateTime?
+  allowDownload Boolean @default(false)
+  createdAt    DateTime @default(now())
+
+  project      Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
