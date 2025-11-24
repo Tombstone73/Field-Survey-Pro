@@ -41,6 +41,7 @@ router.get('/:token', async (req: Request, res: Response) => {
             clientName: project.clientName,
             siteAddress: project.siteAddress,
             status: project.status,
+            allowDownloads: shareLink.allowDownloads,
             photos: project.photos.map(photo => ({
                 id: photo.id,
                 imageFile: photo.imageFile,

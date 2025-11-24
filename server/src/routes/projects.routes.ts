@@ -117,6 +117,7 @@ router.get('/:id', async (req: Request, res: Response) => {
                 notes: {
                     orderBy: { createdAt: 'desc' },
                 },
+                shareLinks: true,
             },
         });
 
@@ -215,10 +216,11 @@ router.delete('/:id', async (req: Request, res: Response) => {
     }
 });
 
-// POST /api/projects/:id/share - Create share link
+// POST /api/projects/:id/share - Create or update share link
 router.post('/:id/share', async (req: Request, res: Response) => {
     try {
         const { id } = req.params;
+        const { expiresAt, allowDownloads } = req.body;
 
         // Check organization access
         const project = await prismaClient.project.findUnique({ where: { id } });
@@ -240,27 +242,34 @@ router.post('/:id/share', async (req: Request, res: Response) => {
             where: { projectId: id }
         });
 
+        let shareLink;
         if (existingLink) {
-            return res.json({
-                shareUrl: `/share/${existingLink.token}`,
-                token: existingLink.token
+            // Update existing link
+            shareLink = await prismaClient.projectShareLink.update({
+                where: { id: existingLink.id },
+                data: {
+                    expiresAt: expiresAt ? new Date(expiresAt) : null,
+                    allowDownloads: allowDownloads ?? true
+                }
+            });
+        } else {
+            // Create new share link
+            const token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+            shareLink = await prismaClient.projectShareLink.create({
+                data: {
+                    projectId: id,
+                    token,
+                    expiresAt: expiresAt ? new Date(expiresAt) : null,
+                    allowDownloads: allowDownloads ?? true
+                }
             });
         }
 
-        // Create new share link
-        const token = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-
-        const shareLink = await prismaClient.projectShareLink.create({
-            data: {
-                projectId: id,
-                token,
-                allowDownload: false
-            }
-        });
-
         res.json({
             shareUrl: `/share/${shareLink.token}`,
-            token: shareLink.token
+            token: shareLink.token,
+            expiresAt: shareLink.expiresAt,
+            allowDownloads: shareLink.allowDownloads
         });
     } catch (error) {
         console.error('Create share link error:', error);

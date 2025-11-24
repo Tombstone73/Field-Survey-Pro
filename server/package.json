@@ -6,6 +6,7 @@
     "type": "module",
     "scripts": {
         "dev": "node --loader ts-node/esm src/server.ts",
+        "dev:server": "node --loader ts-node/esm src/server.ts",
         "build": "tsc",
         "start": "node dist/server.js",
         "db:generate": "npx prisma generate --schema=src/prisma/schema.prisma",

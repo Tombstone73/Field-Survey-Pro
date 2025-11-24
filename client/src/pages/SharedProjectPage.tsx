@@ -8,6 +8,9 @@ interface SharedProject {
     clientName: string;
     siteAddress?: string;
     status: string;
+    siteAddress?: string;
+    status: string;
+    allowDownloads: boolean;
     photos: {
         id: string;
         imageFile: string;
@@ -218,8 +221,9 @@ export default function SharedProjectPage() {
                                 }}>
                                     <div style={{ position: 'relative', paddingTop: '75%', background: '#000' }}>
                                         <img
-                                            src={`http://localhost:3000/uploads/${photo.imageFile}`}
+                                            src={`http://localhost:5001/uploads/${photo.imageFile}`}
                                             alt={photo.caption || 'Project photo'}
+                                            onContextMenu={(e) => !project.allowDownloads && e.preventDefault()}
                                             style={{
                                                 position: 'absolute',
                                                 top: 0,
@@ -230,6 +234,31 @@ export default function SharedProjectPage() {
                                             }}
                                         />
                                         {renderAnnotations(photo)}
+                                        {project.allowDownloads && (
+                                            <a
+                                                href={`http://localhost:5001/uploads/${photo.imageFile}`}
+                                                download
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                style={{
+                                                    position: 'absolute',
+                                                    bottom: '8px',
+                                                    right: '8px',
+                                                    background: 'rgba(255,255,255,0.9)',
+                                                    color: '#333',
+                                                    padding: '4px 8px',
+                                                    borderRadius: '4px',
+                                                    textDecoration: 'none',
+                                                    fontSize: '0.8em',
+                                                    fontWeight: 'bold',
+                                                    zIndex: 10,
+                                                    boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                                                }}
+                                                onClick={(e) => e.stopPropagation()}
+                                            >
+                                                ⬇ Download
+                                            </a>
+                                        )}
                                     </div>
                                     {(photo.caption || photo.statusAtCapture) && (
                                         <div style={{ padding: 'var(--space-sm)' }}>

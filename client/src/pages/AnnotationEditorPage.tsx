@@ -60,7 +60,7 @@ export default function AnnotationEditorPage() {
     const loadPhoto = async () => {
         try {
             const response = await api.get(`/photos/${id}`);
-            setImageSrc(`http://localhost:3000/uploads/${response.data.imageFile}`);
+            setImageSrc(`http://localhost:5001/uploads/${response.data.imageFile}`);
             if (response.data.annotations) {
                 const loadedAnnotations = typeof response.data.annotations === 'string'
                     ? JSON.parse(response.data.annotations)

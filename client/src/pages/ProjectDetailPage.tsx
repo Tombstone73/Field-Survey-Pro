@@ -29,6 +29,11 @@ interface Project {
     projectNotes?: string;
     photos: Photo[];
     notes: Note[];
+    shareLinks?: {
+        token: string;
+        expiresAt: string | null;
+        allowDownloads: boolean;
+    }[];
 }
 
 export default function ProjectDetailPage() {
@@ -50,6 +55,8 @@ export default function ProjectDetailPage() {
     const [updatingPortfolio, setUpdatingPortfolio] = useState(false);
     const [shareUrl, setShareUrl] = useState<string | null>(null);
     const [generatingShare, setGeneratingShare] = useState(false);
+    const [shareExpiresAt, setShareExpiresAt] = useState<string>('');
+    const [shareAllowDownloads, setShareAllowDownloads] = useState(true);
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
     useEffect(() => {
@@ -60,6 +67,14 @@ export default function ProjectDetailPage() {
         try {
             const response = await api.get(`/projects/${id}`);
             setProject(response.data);
+
+            // Initialize share settings if link exists
+            if (response.data.shareLinks && response.data.shareLinks.length > 0) {
+                const link = response.data.shareLinks[0];
+                setShareUrl(`${window.location.origin}/share/${link.token}`);
+                setShareExpiresAt(link.expiresAt ? new Date(link.expiresAt).toISOString().split('T')[0] : '');
+                setShareAllowDownloads(link.allowDownloads);
+            }
         } catch (error) {
             console.error('Failed to load project:', error);
         }
@@ -146,14 +161,22 @@ export default function ProjectDetailPage() {
         }
     };
 
+    const handleOpenShareModal = () => {
+        setShowShareModal(true);
+    };
+
     const handleGenerateShare = async () => {
         setGeneratingShare(true);
         try {
-            const response = await api.post(`/projects/${id}/share`);
+            const response = await api.post(`/projects/${id}/share`, {
+                expiresAt: shareExpiresAt || null,
+                allowDownloads: shareAllowDownloads
+            });
             const fullUrl = `${window.location.origin}/share/${response.data.token}`;
             setShareUrl(fullUrl);
-            setShowShareModal(true);
-            setToast({ message: 'Share link generated!', type: 'success' });
+            setToast({ message: 'Share link updated!', type: 'success' });
+            // Update local project state
+            loadProject();
         } catch (error: any) {
             setToast({ message: error.response?.data?.error || 'Failed to generate share link', type: 'error' });
         } finally {
@@ -202,18 +225,17 @@ export default function ProjectDetailPage() {
                 <h1 style={{ fontSize: 'var(--font-size-lg)', margin: 0 }}>Project Details</h1>
                 <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
                     <button
-                        onClick={handleGenerateShare}
-                        disabled={generatingShare}
+                        onClick={handleOpenShareModal}
                         style={{
                             padding: 'var(--space-sm)',
                             fontSize: 'var(--font-size-md)',
                             color: 'var(--color-primary)',
                             background: 'none',
                             border: 'none',
-                            cursor: generatingShare ? 'wait' : 'pointer'
+                            cursor: 'pointer'
                         }}
                     >
-                        {generatingShare ? '...' : '🔗 Share'}
+                        🔗 Share
                     </button>
                     <button
                         onClick={() => navigate(`/projects/${id}/edit`)}
@@ -404,7 +426,7 @@ export default function ProjectDetailPage() {
                                         }}
                                     >
                                         <img
-                                            src={`http://localhost:3000/uploads/${photo.imageFile}`}
+                                            src={`http://localhost:5001/uploads/${photo.imageFile}`}
                                             alt={photo.caption || 'Project photo'}
                                             style={{ width: '100%', height: '200px', objectFit: 'cover', display: 'block' }}
                                         />
@@ -504,28 +526,62 @@ export default function ProjectDetailPage() {
             )}
 
             {/* Share Modal */}
-            {showShareModal && shareUrl && (
+            {showShareModal && (
                 <>
                     <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 999 }} onClick={() => setShowShareModal(false)} />
                     <div className="modal">
                         <h2>Share with Client</h2>
                         <p style={{ marginBottom: 'var(--space-md)', color: '#666' }}>
-                            Share this link with your client for read-only access to this project.
+                            Configure sharing options for this project.
                         </p>
-                        <div style={{
-                            background: '#f5f5f5',
-                            padding: 'var(--space-md)',
-                            borderRadius: 'var(--radius-md)',
-                            marginBottom: 'var(--space-md)',
-                            wordBreak: 'break-all',
-                            fontFamily: 'monospace',
-                            fontSize: '0.9em'
-                        }}>
-                            {shareUrl}
+
+                        <div style={{ marginBottom: 'var(--space-md)' }}>
+                            <label style={{ display: 'block', marginBottom: 'var(--space-xs)', fontWeight: 'bold' }}>Expiration Date (Optional)</label>
+                            <input
+                                type="date"
+                                value={shareExpiresAt}
+                                onChange={(e) => setShareExpiresAt(e.target.value)}
+                                style={{ padding: 'var(--space-sm)', width: '100%', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)' }}
+                            />
                         </div>
+
+                        <div style={{ marginBottom: 'var(--space-md)' }}>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)', cursor: 'pointer' }}>
+                                <input
+                                    type="checkbox"
+                                    checked={shareAllowDownloads}
+                                    onChange={(e) => setShareAllowDownloads(e.target.checked)}
+                                />
+                                <span>Allow Photo Downloads</span>
+                            </label>
+                        </div>
+
+                        {shareUrl && (
+                            <div style={{
+                                background: '#f5f5f5',
+                                padding: 'var(--space-md)',
+                                borderRadius: 'var(--radius-md)',
+                                marginBottom: 'var(--space-md)',
+                                wordBreak: 'break-all',
+                                fontFamily: 'monospace',
+                                fontSize: '0.9em'
+                            }}>
+                                {shareUrl}
+                            </div>
+                        )}
+
                         <div style={{ display: 'flex', gap: 'var(--space-sm)', justifyContent: 'flex-end' }}>
                             <button onClick={() => setShowShareModal(false)} className="btn btn-secondary">Close</button>
-                            <button onClick={copyShareUrl} className="btn btn-primary">📋 Copy Link</button>
+                            {shareUrl && (
+                                <button onClick={copyShareUrl} className="btn btn-secondary">📋 Copy Link</button>
+                            )}
+                            <button
+                                onClick={handleGenerateShare}
+                                className="btn btn-primary"
+                                disabled={generatingShare}
+                            >
+                                {generatingShare ? 'Saving...' : (shareUrl ? 'Update Settings' : 'Generate Link')}
+                            </button>
                         </div>
                     </div>
                 </>

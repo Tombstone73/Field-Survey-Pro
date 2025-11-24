@@ -87,7 +87,7 @@ export default function PortfolioPage() {
                                 style={{ position: 'relative', cursor: 'pointer' }}
                             >
                                 <img
-                                    src={`http://localhost:3000/uploads/${photo.imageFile}`}
+                                    src={`http://localhost:5001/uploads/${photo.imageFile}`}
                                     alt={photo.caption || 'Portfolio photo'}
                                     style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                                 />

@@ -236,4 +236,106 @@ router.post('/regenerate-code', authenticate, async (req: Request, res: Response
     }
 });
 
+// PUT /api/organizations/:id - Update organization details (OWNER/ADMIN only)
+router.put('/:id', authenticate, async (req: Request, res: Response) => {
+    try {
+        const userId = req.userId!;
+        const { id } = req.params;
+        const { name } = req.body;
+
+        if (!name || name.trim() === '') {
+            return res.status(400).json({ error: 'Organization name is required' });
+        }
+
+        // Check permission
+        const membership = await prisma.organizationMember.findUnique({
+            where: {
+                organizationId_userId: {
+                    organizationId: id,
+                    userId
+                }
+            }
+        });
+
+        if (!membership || (membership.role !== 'OWNER' && membership.role !== 'ADMIN')) {
+            return res.status(403).json({ error: 'Only owners and admins can update organization details' });
+        }
+
+        const organization = await prisma.organization.update({
+            where: { id },
+            data: { name: name.trim() }
+        });
+
+        res.json(organization);
+    } catch (error) {
+        console.error('Error updating organization:', error);
+        res.status(500).json({ error: 'Failed to update organization' });
+    }
+});
+
+// DELETE /api/organizations/:id/members/:memberId - Remove member (OWNER only)
+router.delete('/:id/members/:memberId', authenticate, async (req: Request, res: Response) => {
+    try {
+        const userId = req.userId!;
+        const { id, memberId } = req.params;
+
+        // Check permission (Requester must be OWNER)
+        const requesterMembership = await prisma.organizationMember.findUnique({
+            where: {
+                organizationId_userId: {
+                    organizationId: id,
+                    userId
+                }
+            }
+        });
+
+        if (!requesterMembership || requesterMembership.role !== 'OWNER') {
+            return res.status(403).json({ error: 'Only owners can remove members' });
+        }
+
+        // Prevent removing self
+        if (userId === memberId) {
+            return res.status(400).json({ error: 'Cannot remove yourself. Delete organization or transfer ownership instead.' });
+        }
+
+        // Check if member exists in org
+        const targetMembership = await prisma.organizationMember.findUnique({
+            where: {
+                organizationId_userId: {
+                    organizationId: id,
+                    userId: memberId
+                }
+            }
+        });
+
+        if (!targetMembership) {
+            return res.status(404).json({ error: 'Member not found in this organization' });
+        }
+
+        // Remove member
+        await prisma.organizationMember.delete({
+            where: {
+                organizationId_userId: {
+                    organizationId: id,
+                    userId: memberId
+                }
+            }
+        });
+
+        // Also update the user's currentOrganizationId if it was this org
+        const memberUser = await prisma.user.findUnique({ where: { id: memberId } });
+        if (memberUser?.currentOrganizationId === id) {
+            await prisma.user.update({
+                where: { id: memberId },
+                data: { currentOrganizationId: null }
+            });
+        }
+
+        res.json({ message: 'Member removed successfully' });
+    } catch (error) {
+        console.error('Error removing member:', error);
+        res.status(500).json({ error: 'Failed to remove member' });
+    }
+});
+
 export default router;

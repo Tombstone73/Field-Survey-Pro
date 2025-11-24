@@ -204,7 +204,7 @@ export default function PhotoDetailPage() {
                 }}>
                     <div style={{ position: 'relative', display: 'inline-block', maxWidth: '100%', maxHeight: '60vh' }}>
                         <img
-                            src={`http://localhost:3000/uploads/${photo.imageFile}`}
+                            src={`http://localhost:5001/uploads/${photo.imageFile}`}
                             alt="Project photo"
                             style={{
                                 display: 'block',

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+
 import { useNavigate } from 'react-router-dom';
 import api from '../api/client';
 import Toast from '../components/Toast';
@@ -27,11 +28,13 @@ export default function AccountPage() {
     const [loading, setLoading] = useState(true);
     const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
-    // Create/Join forms
+    // Form state
     const [showCreateForm, setShowCreateForm] = useState(false);
     const [showJoinForm, setShowJoinForm] = useState(false);
     const [orgName, setOrgName] = useState('');
     const [joinCode, setJoinCode] = useState('');
+    const [isEditingName, setIsEditingName] = useState(false);
+    const [editName, setEditName] = useState('');
 
     useEffect(() => {
         loadUserAndOrg();
@@ -41,7 +44,7 @@ export default function AccountPage() {
         try {
             const [userRes, orgRes] = await Promise.all([
                 api.get('/auth/me'),
-                api.get('/organizations/me')
+                api.get('/organizations/me'),
             ]);
             setUser(userRes.data);
             setOrganization(orgRes.data.organization);
@@ -56,7 +59,6 @@ export default function AccountPage() {
     const handleCreateOrg = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!orgName.trim()) return;
-
         try {
             await api.post('/organizations', { name: orgName });
             setToast({ message: 'Organization created successfully!', type: 'success' });
@@ -71,7 +73,6 @@ export default function AccountPage() {
     const handleJoinOrg = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!joinCode.trim()) return;
-
         try {
             await api.post('/organizations/join', { joinCode: joinCode.trim() });
             setToast({ message: 'Successfully joined organization!', type: 'success' });
@@ -85,13 +86,38 @@ export default function AccountPage() {
 
     const handleRegenerateCode = async () => {
         if (!confirm('Are you sure you want to regenerate the join code? The old code will no longer work.')) return;
-
         try {
             const response = await api.post('/organizations/regenerate-code');
             setOrganization(response.data.organization);
             setToast({ message: 'Join code regenerated successfully!', type: 'success' });
         } catch (error: any) {
             setToast({ message: error.response?.data?.error || 'Failed to regenerate code', type: 'error' });
+        }
+    };
+
+    const handleUpdateOrgName = async () => {
+        if (!editName.trim()) return;
+        try {
+            const response = await api.put(`/organizations/${organization!.id}`, { name: editName });
+            setOrganization({ ...organization!, name: response.data.name });
+            setIsEditingName(false);
+            setToast({ message: 'Organization name updated!', type: 'success' });
+        } catch (error: any) {
+            setToast({ message: error.response?.data?.error || 'Failed to update name', type: 'error' });
+        }
+    };
+
+    const handleRemoveMember = async (userId: string, memberName: string) => {
+        if (!confirm(`Are you sure you want to remove ${memberName} from the organization?`)) return;
+        try {
+            await api.delete(`/organizations/${organization!.id}/members/${userId}`);
+            setOrganization({
+                ...organization!,
+                members: organization!.members.filter(m => m.user.id !== userId),
+            });
+            setToast({ message: 'Member removed successfully', type: 'success' });
+        } catch (error: any) {
+            setToast({ message: error.response?.data?.error || 'Failed to remove member', type: 'error' });
         }
     };
 
@@ -138,18 +164,12 @@ export default function AccountPage() {
                     <p style={{ marginBottom: 'var(--space-md)', color: '#888' }}>
                         You need to create or join an organization to start using Field Survey Pro.
                     </p>
-
                     {!showCreateForm && !showJoinForm && (
                         <div style={{ display: 'flex', gap: 'var(--space-sm)', flexWrap: 'wrap' }}>
-                            <button onClick={() => setShowCreateForm(true)} className="btn btn-primary">
-                                Create Organization
-                            </button>
-                            <button onClick={() => setShowJoinForm(true)} className="btn btn-secondary">
-                                Join Organization
-                            </button>
+                            <button onClick={() => setShowCreateForm(true)} className="btn btn-primary">Create Organization</button>
+                            <button onClick={() => setShowJoinForm(true)} className="btn btn-secondary">Join Organization</button>
                         </div>
                     )}
-
                     {showCreateForm && (
                         <form onSubmit={handleCreateOrg} style={{ marginTop: 'var(--space-md)' }}>
                             <h3 style={{ marginBottom: 'var(--space-sm)' }}>Create New Organization</h3>
@@ -157,20 +177,17 @@ export default function AccountPage() {
                                 type="text"
                                 placeholder="Organization Name"
                                 value={orgName}
-                                onChange={(e) => setOrgName(e.target.value)}
+                                onChange={e => setOrgName(e.target.value)}
                                 className="input"
                                 style={{ marginBottom: 'var(--space-sm)' }}
                                 required
                             />
                             <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
                                 <button type="submit" className="btn btn-primary">Create</button>
-                                <button type="button" onClick={() => setShowCreateForm(false)} className="btn btn-secondary">
-                                    Cancel
-                                </button>
+                                <button type="button" onClick={() => setShowCreateForm(false)} className="btn btn-secondary">Cancel</button>
                             </div>
                         </form>
                     )}
-
                     {showJoinForm && (
                         <form onSubmit={handleJoinOrg} style={{ marginTop: 'var(--space-md)' }}>
                             <h3 style={{ marginBottom: 'var(--space-sm)' }}>Join Organization</h3>
@@ -178,16 +195,14 @@ export default function AccountPage() {
                                 type="text"
                                 placeholder="Enter Join Code"
                                 value={joinCode}
-                                onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                                onChange={e => setJoinCode(e.target.value.toUpperCase())}
                                 className="input"
                                 style={{ marginBottom: 'var(--space-sm)' }}
                                 required
                             />
                             <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
                                 <button type="submit" className="btn btn-primary">Join</button>
-                                <button type="button" onClick={() => setShowJoinForm(false)} className="btn btn-secondary">
-                                    Cancel
-                                </button>
+                                <button type="button" onClick={() => setShowJoinForm(false)} className="btn btn-secondary">Cancel</button>
                             </div>
                         </form>
                     )}
@@ -195,93 +210,73 @@ export default function AccountPage() {
             ) : (
                 <div className="card">
                     <h2 style={{ marginBottom: 'var(--space-md)' }}>Organization</h2>
-
                     <div style={{ marginBottom: 'var(--space-md)' }}>
-                        <p><strong>Name:</strong> {organization.name}</p>
-                        <p><strong>Your Role:</strong> <span style={{
-                            background: 'var(--color-primary)',
-                            color: 'white',
-                            padding: '2px 8px',
-                            borderRadius: '4px',
-                            fontSize: '0.85em'
-                        }}>{userRole}</span></p>
-                    </div>
-
-                    {(userRole === 'OWNER' || userRole === 'ADMIN') && (
-                        <div style={{
-                            marginBottom: 'var(--space-md)',
-                            padding: 'var(--space-sm)',
-                            background: '#f5f5f5',
-                            borderRadius: '8px'
-                        }}>
-                            <p style={{ marginBottom: 'var(--space-xs)', fontWeight: 'bold' }}>Join Code:</p>
-                            <div style={{ display: 'flex', gap: 'var(--space-sm)', alignItems: 'center' }}>
-                                <code style={{
-                                    background: 'white',
-                                    padding: '8px 12px',
-                                    borderRadius: '4px',
-                                    fontSize: '1.2em',
-                                    fontWeight: 'bold',
-                                    flex: 1
-                                }}>
-                                    {organization.joinCode}
-                                </code>
-                                <button
-                                    onClick={() => copyToClipboard(organization.joinCode)}
-                                    className="btn btn-secondary btn-sm"
-                                >
-                                    Copy
-                                </button>
+                        {/* Name */}
+                        {isEditingName ? (
+                            <div style={{ display: 'flex', gap: 'var(--space-sm)', alignItems: 'center', marginBottom: 'var(--space-sm)' }}>
+                                <input
+                                    type="text"
+                                    value={editName}
+                                    onChange={e => setEditName(e.target.value)}
+                                    className="input"
+                                    autoFocus
+                                />
+                                <button onClick={handleUpdateOrgName} className="btn btn-primary btn-sm">Save</button>
+                                <button onClick={() => setIsEditingName(false)} className="btn btn-secondary btn-sm">Cancel</button>
                             </div>
-                            <button
-                                onClick={handleRegenerateCode}
-                                className="btn btn-secondary btn-sm"
-                                style={{ marginTop: 'var(--space-sm)' }}
-                            >
-                                Regenerate Code
-                            </button>
-                        </div>
-                    )}
+                        ) : (
+                            <p style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)' }}>
+                                <strong>Name:</strong> {organization.name}
+                                {(userRole === 'OWNER' || userRole === 'ADMIN') && (
+                                    <button
+                                        onClick={() => { setEditName(organization.name); setIsEditingName(true); }}
+                                        style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '1.2em' }}
+                                        title="Edit Name"
+                                    >
+                                        ✏️
+                                    </button>
+                                )}
+                            </p>
+                        )}
+                        <p><strong>Your Role:</strong> <span style={{ background: 'var(--color-primary)', color: 'white', padding: '2px 8px', borderRadius: '4px', fontSize: '0.85em' }}>{userRole}</span></p>
 
-                    <h3 style={{ marginBottom: 'var(--space-sm)' }}>Members ({organization.members.length})</h3>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-xs)' }}>
-                        {organization.members.map(member => (
-                            <div
-                                key={member.id}
-                                style={{
-                                    padding: 'var(--space-sm)',
-                                    background: '#f9f9f9',
-                                    borderRadius: '6px',
-                                    display: 'flex',
-                                    justifyContent: 'space-between',
-                                    alignItems: 'center'
-                                }}
-                            >
-                                <div>
-                                    <p style={{ fontWeight: 'bold', marginBottom: '2px' }}>{member.user.name}</p>
-                                    <p style={{ fontSize: '0.9em', color: '#666' }}>{member.user.email}</p>
+                        {/* Join Code */}
+                        {(userRole === 'OWNER' || userRole === 'ADMIN') && (
+                            <div style={{ marginBottom: 'var(--space-md)', padding: 'var(--space-sm)', background: '#f5f5f5', borderRadius: '8px' }}>
+                                <p style={{ marginBottom: 'var(--space-xs)', fontWeight: 'bold' }}>Join Code:</p>
+                                <div style={{ display: 'flex', gap: 'var(--space-sm)', alignItems: 'center' }}>
+                                    <code style={{ background: 'white', padding: '8px 12px', borderRadius: '4px', fontSize: '1.2em', fontWeight: 'bold', flex: 1 }}>{organization.joinCode}</code>
+                                    <button onClick={() => copyToClipboard(organization.joinCode)} className="btn btn-secondary btn-sm">Copy</button>
                                 </div>
-                                <span style={{
-                                    background: member.role === 'OWNER' ? 'var(--color-primary)' : '#888',
-                                    color: 'white',
-                                    padding: '4px 8px',
-                                    borderRadius: '4px',
-                                    fontSize: '0.8em'
-                                }}>
-                                    {member.role}
-                                </span>
+                                <button onClick={handleRegenerateCode} className="btn btn-secondary btn-sm" style={{ marginTop: 'var(--space-sm)' }}>Regenerate Code</button>
                             </div>
-                        ))}
+                        )}
+
+                        {/* Members */}
+                        <h3 style={{ marginBottom: 'var(--space-sm)' }}>Members ({organization.members.length})</h3>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-xs)' }}>
+                            {organization.members.map(member => (
+                                <div key={member.id} style={{ padding: 'var(--space-sm)', background: '#f9f9f9', borderRadius: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                    <div>
+                                        <p style={{ fontWeight: 'bold', marginBottom: '2px' }}>{member.user.name}</p>
+                                        <p style={{ fontSize: '0.9em', color: '#666' }}>{member.user.email}</p>
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-sm)' }}>
+                                        <span style={{ background: member.role === 'OWNER' ? 'var(--color-primary)' : '#888', color: 'white', padding: '4px 8px', borderRadius: '4px', fontSize: '0.8em' }}>{member.role}</span>
+                                        {userRole === 'OWNER' && member.user.id !== user?.id && (
+                                            <button onClick={() => handleRemoveMember(member.user.id, member.user.name)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'red' }} title="Remove Member">🗑️</button>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
                     </div>
                 </div>
             )}
 
+            {/* Toast */}
             {toast && (
-                <Toast
-                    message={toast.message}
-                    type={toast.type}
-                    onClose={() => setToast(null)}
-                />
+                <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />
             )}
         </div>
     );
